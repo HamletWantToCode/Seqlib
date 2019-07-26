@@ -21,15 +21,16 @@ class Seq2Seq(BaseModel):
     # @torchsnooper.snoop()
     def forward(self, input_seq, target_seq, hidden=None):
         """
-        :input_seq: batch_size * seq_size * feature_size
-        :target_seq: batch_size * seq_size * feature_size
-        :hidden: layer_size * batch_size * hidden_size
+        :input_seq: batch_size * seq_size
+        :target_seq: batch_size * seq_size
+        :hidden: layer_size * batch_size
         """
         input_length = input_seq.size(1)
         target_length = target_seq.size(1)
 
         for ix in range(input_length):
-            _, hidden = self.encoder(input_seq[:, ix, :], hidden)
+            _input_word = input_seq[:, ix].unsqueeze(dim=1)   # _input_word: n_batch * 1
+            _, hidden = self.encoder(_input_word, hidden)
         
         decoder_input = torch.repeat_interleave(
             torch.tensor([[SOS_token]]),
@@ -42,12 +43,12 @@ class Seq2Seq(BaseModel):
         if self.teaching:
             for ix in range(target_length):
                 decoder_output, hidden = self.decoder(decoder_input, hidden)
-                decoder_input = target_seq[:, ix, :]
+                decoder_input = target_seq[:, ix].unsqueeze(dim=1)
                 output_seq[:, ix, :] = decoder_output
         else:
             for ix in range(target_length):
                 decoder_output, hidden = self.decoder(decoder_input, hidden)
-                topv, topi = decoder_output.topk(1, dim=1)
+                topv, topi = decoder_output.topk(1, dim=1)       # topi: n_batch * 1
                 decoder_input = topi.detach()
                 output_seq[:, ix, :] = decoder_output
 

@@ -4,6 +4,7 @@ from torchvision.utils import make_grid
 from ..base import BaseTrainer
 from ..utils import inf_loop
 
+# import torchsnooper
 
 class Trainer(BaseTrainer):
     """
@@ -36,6 +37,7 @@ class Trainer(BaseTrainer):
             self.writer.add_scalar('{}'.format(metric.__name__), acc_metrics[i])
         return acc_metrics
 
+    # @torchsnooper.snoop()
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -60,7 +62,7 @@ class Trainer(BaseTrainer):
             data, target = data.to(self.device), target.to(self.device)
 
             self.optimizer.zero_grad()
-            output = self.model(data)
+            output, _ = self.model(data, target)
             loss = self.loss(output, target)
             loss.backward()
             self.optimizer.step()
@@ -110,7 +112,7 @@ class Trainer(BaseTrainer):
             for batch_idx, (data, target) in enumerate(self.valid_data_loader):
                 data, target = data.to(self.device), target.to(self.device)
 
-                output = self.model(data)
+                output, _ = self.model(data, target)
                 loss = self.loss(output, target)
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')

@@ -1,12 +1,12 @@
 import argparse
 import collections
 import torch
-import data_loader.data_loaders as module_data
-import model.loss as module_loss
-import model.metric as module_metric
-import model.model as module_arch
-from parse_config import ConfigParser
-from trainer import Trainer
+import Seqlib.data_loader.data_loaders as module_data
+import Seqlib.model.loss as module_loss
+import Seqlib.model.metric as module_metric
+import Seqlib.model as module_arch
+from Seqlib.parse_config import ConfigParser
+from Seqlib.trainer import Trainer
 
 
 def main(config):

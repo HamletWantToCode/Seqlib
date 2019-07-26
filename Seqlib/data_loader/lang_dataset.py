@@ -46,6 +46,7 @@ class Lang(object):
         else:
             self.word2count[word] += 1
 
+# transformer
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] for word in sentence]
 
@@ -53,13 +54,34 @@ def tensorFromSentence(lang, sentence):
     indexes = indexesFromSentence(lang, sentence)
     indexes.append(EOS_token)
     for _ in range(lang.max_len_sentence - len(sentence)):
-        indexes.append(EOS_token)
-    return torch.tensor(indexes, dtype=torch.long).view(-1, 1)
+        indexes.append(0)
+    return torch.tensor(indexes, dtype=torch.long)
 
 def tensorsFromPair(pair, input_lang, output_lang):
     input_tensor = tensorFromSentence(input_lang, pair[0])
     target_tensor = tensorFromSentence(output_lang, pair[1])
     return (input_tensor, target_tensor)
+
+# pre-filter
+MAX_LENGTH = 10
+
+eng_prefixes = (
+    "i am ", "i m ",
+    "he is", "he s ",
+    "she is", "she s ",
+    "you are", "you re ",
+    "we are", "we re ",
+    "they are", "they re "
+)
+
+
+def filterPair(p):
+    return len(p[0]) < MAX_LENGTH and \
+        len(p[1]) < MAX_LENGTH and \
+        ' '.join(p[0]).startswith(eng_prefixes)
+
+def filterPairs(pairs):
+    return [pair for pair in pairs if filterPair(pair)]
 
 
 class LangDataset(Dataset):
@@ -75,11 +97,12 @@ class LangDataset(Dataset):
 
 
     def loader(self, root_dir, lang1=None, lang2=None, reverse=False):
-        with open(root_dir+'/data/%s-%s.txt' %(lang1, lang2), encoding='utf-8') as f:
+        with open(root_dir+'/%s-%s.txt' %(lang1, lang2), encoding='utf-8') as f:
             _data = f.read().strip().split('\n')
         
         _pairs = [[normalizeString(s) for s in l.split('\t')] for l in _data]
-        pairs = [[s.split(' ') for s in l] for l in _pairs]
+        _pairs = [[s.split(' ') for s in l] for l in _pairs]
+        pairs = filterPairs(_pairs)
         if reverse:
             pairs = [list(reversed(p)) for p in pairs]
             input_lang = Lang(lang2)
@@ -96,8 +119,12 @@ class LangDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
+        """
+        :feature, target: seq_len
+        """
         _feature, _target = self.data[idx]
         pair = (_feature, _target)
+
         feature, target = tensorsFromPair(pair, self.input_lang, self.output_lang)
         return (feature, target)
 

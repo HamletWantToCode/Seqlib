@@ -1,19 +1,28 @@
 {
-    "name": "Mnist_LeNet",
-    "n_gpu": 1,
+    "name": "Seq2Seq",
+    "n_gpu": 0,
 
     "arch": {
-        "type": "MnistModel",
-        "args": {}
+        "type": "Seq2Seq",
+        "args": {
+            "input_size": 2993,
+            "hidden_size": 256,
+            "output_size": 4649,
+            "batch_size": 50,
+            "teaching": true
+        }
     },
     "data_loader": {
-        "type": "MnistDataLoader",
+        "type": "LangDataLoader",
         "args":{
-            "data_dir": "data/",
-            "batch_size": 128,
+            "data_dir": "/Users/hongbinren/Documents/data/my/lang_data/deu-eng",
+            "lang1": "eng",
+            "lang2": "deu",
+            "batch_size": 50,
+            "mode": "train",
             "shuffle": true,
             "validation_split": 0.1,
-            "num_workers": 2
+            "num_workers": 4
         }
     },
     "optimizer": {
@@ -25,9 +34,7 @@
         }
     },
     "loss": "nll_loss",
-    "metrics": [
-        "my_metric", "my_metric2"
-    ],
+    "metrics": [],
     "lr_scheduler": {
         "type": "StepLR",
         "args": {
@@ -36,7 +43,7 @@
         }
     },
     "trainer": {
-        "epochs": 100,
+        "epochs": 50,
 
         "save_dir": "saved/",
         "save_period": 1,
