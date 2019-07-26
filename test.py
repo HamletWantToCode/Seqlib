@@ -1,11 +1,33 @@
 import argparse
 import torch
 from tqdm import tqdm
-import data_loader.data_loaders as module_data
-import model.loss as module_loss
-import model.metric as module_metric
-import model.model as module_arch
-from parse_config import ConfigParser
+import Seqlib.data_loader as module_data
+import Seqlib.model.loss as module_loss
+# import model.metric as module_metric
+import Seqlib.model as module_arch
+from Seqlib.parse_config import ConfigParser
+
+
+def decode_word(decoder_output, dataset):
+    output_lang = dataset.output_lang
+    topv, topi = decoder_output.topk(1, dim=1)
+    topi.squeeze_(dim=1)
+    decoded_words = []
+    for i in range(topi.size(0)):
+        decoded_words.append(output_lang.index2word[topi[i].item()])
+    return ' '.join(decoded_words)
+
+def evaluate(decoder_output, target, dataset):
+    decoded_words = decode_word(decoder_output, dataset)
+    output_lang = dataset.output_lang
+    target_words = []
+    for i in range(target.size(0)):
+        target_words.append(output_lang.index2word[target[i].item()])
+    return ' '.join(target_words), decoded_words
+
+def batch_evaluate(decoder_outputs, targets, dataset):
+    for i in range(len(decoder_outputs)):
+        print(evaluate(decoder_outputs[i], targets[i], dataset))
 
 
 def main(config):
@@ -14,20 +36,23 @@ def main(config):
     # setup data_loader instances
     data_loader = getattr(module_data, config['data_loader']['type'])(
         config['data_loader']['args']['data_dir'],
-        batch_size=512,
+        lang1='eng',
+        lang2='deu',
+        batch_size=50,
+        mode="train",
         shuffle=False,
         validation_split=0.0,
-        training=False,
-        num_workers=2
+        num_workers=4
     )
 
     # build model architecture
     model = config.initialize('arch', module_arch)
     logger.info(model)
+    model.teaching = False
 
     # get function handles of loss and metrics
     loss_fn = getattr(module_loss, config['loss'])
-    metric_fns = [getattr(module_metric, met) for met in config['metrics']]
+    # metric_fns = [getattr(module_metric, met) for met in config['metrics']]
 
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
     checkpoint = torch.load(config.resume)
@@ -42,12 +67,12 @@ def main(config):
     model.eval()
 
     total_loss = 0.0
-    total_metrics = torch.zeros(len(metric_fns))
+    # total_metrics = torch.zeros(len(metric_fns))
 
     with torch.no_grad():
         for i, (data, target) in enumerate(tqdm(data_loader)):
             data, target = data.to(device), target.to(device)
-            output = model(data)
+            output, _ = model(data, target)
 
             #
             # save sample images, or do something with output here
@@ -57,19 +82,21 @@ def main(config):
             loss = loss_fn(output, target)
             batch_size = data.shape[0]
             total_loss += loss.item() * batch_size
-            for i, metric in enumerate(metric_fns):
-                total_metrics[i] += metric(output, target) * batch_size
+
+            batch_evaluate(output, target, data_loader.dataset)
+            # for i, metric in enumerate(metric_fns):
+            #     total_metrics[i] += metric(output, target) * batch_size
 
     n_samples = len(data_loader.sampler)
     log = {'loss': total_loss / n_samples}
-    log.update({
-        met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
-    })
+    # log.update({
+    #     met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
+    # })
     logger.info(log)
 
 
 if __name__ == '__main__':
-    args = argparse.ArgumentParser(description='PyTorch Template')
+    args = argparse.ArgumentParser(description='Seqlib')
 
     args.add_argument('-r', '--resume', default=None, type=str,
                       help='path to latest checkpoint (default: None)')
